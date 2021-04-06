@@ -22,7 +22,7 @@ func NewService(inviteRepository domain.InviteRepository, meetingRepository doma
 }
 
 func (s *service) SendInvite(dto *domain.CreateInviteDto, uid string) error {
-	// Define Timeout
+	// Define timeout
 	ctx, ccl := context.WithTimeout(context.Background(), 10*time.Second)
 	defer ccl()
 
@@ -57,12 +57,71 @@ func (s *service) SendInvite(dto *domain.CreateInviteDto, uid string) error {
 	return s.inviteRepo.CreateInvite(ctx, i)
 }
 
-func (s *service) GetInvitesByReceiver(uid string) error {
-	panic("implement me")
+func (s *service) GetInvitesByReceiver(uid string) ([]*domain.Invite, error) {
+	// Define timeout
+	ctx, ccl := context.WithTimeout(context.Background(), 10*time.Second)
+	defer ccl()
+
+	// Fetch invites
+	i, err := s.inviteRepo.GetInvitesByReceiver(ctx, uid)
+	if err != nil {
+		return nil, err
+	}
+	return i, nil
 }
 
-func (s *service) AcceptInvite(id string) error {
-	// Define Timeout
+func (s *service) GetInvitesByMeeting(mid string) ([]*domain.Invite, error) {
+	// Define timeout
+	ctx, ccl := context.WithTimeout(context.Background(), 10*time.Second)
+	defer ccl()
+
+	// Fetch invites
+	i, err := s.inviteRepo.GetInvitesByMeeting(ctx, mid)
+	if err != nil {
+		return nil, err
+	}
+	return i, nil
+}
+
+func (s *service) GetInvitesByReceiverCount(uid string) (int, error) {
+	// Define timeout
+	ctx, ccl := context.WithTimeout(context.Background(), 10*time.Second)
+	defer ccl()
+
+	// Fetch invites
+	c, err := s.inviteRepo.GetInvitesByReceiverCount(ctx, uid)
+	if err != nil {
+		return 0, err
+	}
+	return c, nil
+}
+
+func (s *service) GetInvitesByMeetingCount(mid string, uid string) (int, error) {
+	// Define timeout
+	ctx, ccl := context.WithTimeout(context.Background(), 10*time.Second)
+	defer ccl()
+
+	// Fetch meeting
+	m, err := s.meetingRepo.GetMeetingByID(ctx, mid)
+	if err != nil {
+		return 0, err
+	}
+
+	// Check permissions
+	if !m.IsParticipant(uid) {
+		return 0, domain.ErrForbidden
+	}
+
+	// Fetch invites
+	c, err := s.inviteRepo.GetInvitesByMeetingCount(ctx, mid)
+	if err != nil {
+		return 0, err
+	}
+	return c, nil
+}
+
+func (s *service) AcceptInvite(id string, uid string) error {
+	// Define timeout
 	ctx, ccl := context.WithTimeout(context.Background(), 10*time.Second)
 	defer ccl()
 
@@ -72,16 +131,21 @@ func (s *service) AcceptInvite(id string) error {
 		return err
 	}
 
-	// Fetch meeting
-	m, err := s.meetingRepo.GetMeetingByID(ctx, i.MeetingID)
-	if err != nil {
-		return err
+	// Check if the current user is the receiver
+	if i.ReceiverID != uid {
+		return domain.ErrForbidden
 	}
 
-	// Check if user still exists
+	// Fetch meeting, if it does not exist -> delete invite
+	m, err := s.meetingRepo.GetMeetingByID(ctx, i.MeetingID)
+	if err != nil {
+		return s.inviteRepo.DeleteInvite(ctx, id)
+	}
+
+	// Check if user still exists, if not -> delete invite
 	_, err = s.userRepo.GetUserByID(ctx, i.ReceiverID)
 	if err != nil {
-		return err
+		return s.inviteRepo.DeleteInvite(ctx, id)
 	}
 
 	// Add invited user as a participant to the meeting
@@ -95,15 +159,31 @@ func (s *service) AcceptInvite(id string) error {
 	return s.inviteRepo.DeleteInvite(ctx, id)
 }
 
-func (s *service) RejectInvite(id string) error {
-	// Define Timeout
+func (s *service) DeleteInvite(id string, uid string) error {
+	// Define timeout
 	ctx, ccl := context.WithTimeout(context.Background(), 10*time.Second)
 	defer ccl()
 
 	// Check if invite exists
-	_, err := s.inviteRepo.GetInviteByID(ctx, id)
+	i, err := s.inviteRepo.GetInviteByID(ctx, id)
 	if err != nil {
 		return err
+	}
+
+	// Fetch meeting, if it does not exist -> delete invite
+	m, err := s.meetingRepo.GetMeetingByID(ctx, i.MeetingID)
+	if err != nil {
+		return s.inviteRepo.DeleteInvite(ctx, id)
+	}
+
+	// If sender is not an organizer anymore -> delete invite
+	if !m.IsOrganizer(i.SenderID) {
+		return s.inviteRepo.DeleteInvite(ctx, id)
+	}
+
+	// Check if current user is an organizer
+	if !m.IsOrganizer(uid) && i.ReceiverID != uid {
+		return domain.ErrForbidden
 	}
 
 	// Delete invite

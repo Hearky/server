@@ -9,13 +9,20 @@ type CreateMeetingDto struct {
 	Participants []string `json:"participants"`
 }
 
-// Meeting represents a hearky meeting
+// Meeting represents a Hearky meeting
 type Meeting struct {
-	ID           string   `json:"id"`
-	Name         string   `json:"name"`
-	Owner        string   `json:"owner"`
-	Organizers   []string `json:"organizers"`
-	Participants []string `json:"participants"`
+	ID           string         `json:"id"`
+	Name         string         `json:"name"`
+	Owner        string         `json:"owner"`
+	Organizers   []string       `json:"organizers"`
+	Participants []string       `json:"participants"`
+	Upgrade      MeetingUpgrade `json:"upgrade"`
+}
+
+// MeetingUpgrade contains the upgrade data
+type MeetingUpgrade struct {
+	Participants      int `json:"participants"`
+	ConcurrentInvites int `json:"concurrent_invites"`
 }
 
 // PartialMeeting is a subset with necessary data of a meeting
