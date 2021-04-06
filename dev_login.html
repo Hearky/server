@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<!-- The core Firebase JS SDK is always required and must be listed first -->
+<script src="https://www.gstatic.com/firebasejs/8.3.2/firebase-app.js"></script>
+
+<!-- TODO: Add SDKs for Firebase products that you want to use
+     https://firebase.google.com/docs/web/setup#available-libraries -->
+<script src="https://www.gstatic.com/firebasejs/8.3.2/firebase-auth.js"></script>
+
+<script>
+    // Your web app's Firebase configuration
+    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+    var firebaseConfig = {
+        apiKey: "AIzaSyCPKZOGg4AcULsGIxewfqT5sP1gnWBF7pk",
+        authDomain: "hearky-29705.firebaseapp.com",
+        projectId: "hearky-29705",
+        storageBucket: "hearky-29705.appspot.com",
+        messagingSenderId: "225294103763",
+        appId: "1:225294103763:web:5d1471d5f2cbd4cff39026",
+        measurementId: "G-V7129D81NQ"
+    };
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+</script>
+
+<script>
+    function handleLogin() {
+        var provider = new firebase.auth.GoogleAuthProvider();
+        firebase.auth().signInWithPopup(provider)
+    }
+
+    function printToken() {
+        firebase.auth().currentUser.getIdToken().then(t => {
+            console.log(t)
+            document.createTextNode(t);
+        })
+    }
+</script>
+
+<button onclick="handleLogin()">Login</button>
+<button onclick="printToken()">Token</button>
+</body>
+</html>
