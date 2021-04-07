@@ -1,15 +1,13 @@
 package web
 
 import (
-	"context"
 	"github.com/gofiber/fiber/v2"
 	"github.com/hearky/server/pkg/domain"
-	"time"
 )
 
 func (s *Server) HandleCreateUser(c *fiber.Ctx) error {
-	uid, err := s.Authorize(c)
-	if err != nil || uid != "" {
+	uid, err := s.TokenAuth(c)
+	if err != nil || uid == "" {
 		return nil
 	}
 	var dto domain.CreateUserDto
@@ -18,24 +16,49 @@ func (s *Server) HandleCreateUser(c *fiber.Ctx) error {
 		return s.BadRequest(c)
 	}
 
-	ctx, ccl := context.WithTimeout(context.Background(), 10 * time.Second)
-	defer ccl()
-	err = s.userService.CreateUser(ctx, &dto, uid)
+	err = s.userService.CreateUser(&dto, uid)
 	if err != nil {
 		return s.DomainError(c, err)
 	}
+
 	return c.SendStatus(fiber.StatusOK)
 }
 
-func (s *Server) HandleGetUserMeetings(c *fiber.Ctx) error {
+func (s *Server) HandleGetMe(c *fiber.Ctx) error {
 	uid, err := s.Authorize(c)
 	if err != nil || uid == "" {
 		return nil
 	}
 
-	ctx, ccl := context.WithTimeout(context.Background(), 10 * time.Second)
-	defer ccl()
-	m, err := s.meetingService.GetMeetingsByUserID(ctx, uid)
+	u, err := s.userService.GetUser(uid, uid)
+	if err != nil {
+		return s.DomainError(c, err)
+	}
+
+	return c.JSON(u)
+}
+
+func (s *Server) HandleDeleteMe(c *fiber.Ctx) error {
+	uid, err := s.Authorize(c)
+	if err != nil || uid == "" {
+		return nil
+	}
+
+	err = s.userService.DeleteUser(uid, uid)
+	if err != nil {
+		return s.DomainError(c, err)
+	}
+
+	return c.SendStatus(fiber.StatusOK)
+}
+
+func (s *Server) HandleGetMyMeetings(c *fiber.Ctx) error {
+	uid, err := s.Authorize(c)
+	if err != nil || uid == "" {
+		return nil
+	}
+
+	m, err := s.meetingService.GetMeetingsByUser(uid)
 	if err != nil {
 		return s.DomainError(c, err)
 	}
@@ -43,29 +66,44 @@ func (s *Server) HandleGetUserMeetings(c *fiber.Ctx) error {
 	return c.JSON(m)
 }
 
-func (s *Server) HandleSendInvite(c *fiber.Ctx) error {
+func (s *Server) HandleGetMyMeetingsCount(c *fiber.Ctx) error {
 	uid, err := s.Authorize(c)
 	if err != nil || uid == "" {
 		return nil
 	}
 
-	var dto domain.CreateInviteDto
-	err = c.BodyParser(&dto)
-	if err != nil {
-		return s.BadRequest(c)
-	}
-
-	ctx, ccl := context.WithTimeout(context.Background(), 10 * time.Second)
-	defer ccl()
-	m, err := s.meetingService.GetMeetingByID(ctx, dto.MeetingID)
+	count, err := s.meetingService.GetMeetingsByUserCount(uid)
 	if err != nil {
 		return s.DomainError(c, err)
 	}
 
-	// Check if the user is organizer
-	if !m.IsOrganizer(uid) {
-		return s.Forbidden(c)
+	return c.JSON(&domain.CountMessage{Count: count})
+}
+
+func (s *Server) HandleGetMyInvites(c *fiber.Ctx) error {
+	uid, err := s.Authorize(c)
+	if err != nil || uid == "" {
+		return nil
+	}
+
+	m, err := s.inviteService.GetInvitesByReceiver(uid)
+	if err != nil {
+		return s.DomainError(c, err)
 	}
 
 	return c.JSON(m)
+}
+
+func (s *Server) HandleGetMyInvitesCount(c *fiber.Ctx) error {
+	uid, err := s.Authorize(c)
+	if err != nil || uid == "" {
+		return nil
+	}
+
+	count, err := s.inviteService.GetInvitesByReceiverCount(uid)
+	if err != nil {
+		return s.DomainError(c, err)
+	}
+
+	return c.JSON(&domain.CountMessage{Count: count})
 }

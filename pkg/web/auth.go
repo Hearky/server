@@ -8,6 +8,19 @@ import (
 )
 
 func (s *Server) Authorize(c *fiber.Ctx) (string, error) {
+	uid, err := s.TokenAuth(c)
+	if err != nil {
+		return "", err
+	}
+
+	_, err = s.userService.GetUser(uid, uid)
+	if err != nil {
+		return "", s.DomainError(c, err)
+	}
+	return uid, nil
+}
+
+func (s *Server) TokenAuth(c *fiber.Ctx) (string, error) {
 	rawToken := c.Get(fiber.HeaderAuthorization)
 
 	// Check if token even exists

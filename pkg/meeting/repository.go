@@ -10,17 +10,17 @@ import (
 	"go.uber.org/zap"
 )
 
-type Repository struct {
+type repository struct {
 	col *mongo.Collection
 }
 
-func NewRepository(db *mongo.Database) *Repository {
-	return &Repository{
+func NewRepository(db *mongo.Database) domain.MeetingRepository {
+	return &repository{
 		col: db.Collection("meetings"),
 	}
 }
 
-func (r *Repository) CreateMeeting(ctx context.Context, m *domain.Meeting) error {
+func (r *repository) CreateMeeting(ctx context.Context, m *domain.Meeting) error {
 	res, err := r.col.InsertOne(ctx, m)
 	if err != nil {
 		sentry.CaptureException(err)
@@ -31,9 +31,9 @@ func (r *Repository) CreateMeeting(ctx context.Context, m *domain.Meeting) error
 	return nil
 }
 
-func (r *Repository) GetMeetingByID(ctx context.Context, id string) (*domain.Meeting, error) {
+func (r *repository) GetMeetingByID(ctx context.Context, id string) (*domain.Meeting, error) {
 	var m domain.Meeting
-	err := r.col.FindOne(ctx, bson.D{primitive.E{Key: "id", Value: id}}).Decode(&m)
+	err := r.col.FindOne(ctx, bson.D{primitive.E{Key: "_id", Value: id}}).Decode(&m)
 	if err == mongo.ErrNoDocuments {
 		return nil, domain.ErrNotFound
 	} else if err != nil {
@@ -44,10 +44,10 @@ func (r *Repository) GetMeetingByID(ctx context.Context, id string) (*domain.Mee
 	return &m, nil
 }
 
-func (r *Repository) GetMeetingsByUserID(ctx context.Context, id string) ([]*domain.Meeting, error) {
+func (r *repository) GetMeetingsByUser(ctx context.Context, id string) ([]*domain.Meeting, error) {
 	var m []*domain.Meeting
 	c, err := r.col.Find(ctx, bson.M{"$or": []bson.M{
-		{"owner": id},
+		{"owner_id": id},
 		{"organizers": id},
 		{"participants": id},
 	}})
@@ -68,13 +68,45 @@ func (r *Repository) GetMeetingsByUserID(ctx context.Context, id string) ([]*dom
 	return m, nil
 }
 
-func (r *Repository) DeleteMeetingByID(ctx context.Context, id string) error {
-	_, err := r.col.DeleteOne(ctx, bson.D{primitive.E{Key: "id", Value: id}})
+func (r *repository) GetMeetingsByUserCount(ctx context.Context, id string) (int64, error) {
+	c, err := r.col.CountDocuments(ctx, bson.M{"$or": []bson.M{
+		{"owner_id": id},
+		{"organizers": id},
+		{"participants": id},
+	}})
+	if err != nil {
+		sentry.CaptureException(err)
+		zap.L().Error("failed to find meetings count by user", zap.String("id", id), zap.Error(err))
+		return -1, domain.ErrInternal
+	}
+	return c, nil
+}
+
+func (r *repository) DeleteMeeting(ctx context.Context, id string) error {
+	_, err := r.col.DeleteOne(ctx, bson.D{primitive.E{Key: "_id", Value: id}})
 	if err != nil {
 		sentry.CaptureException(err)
 		zap.L().Error("failed to delete meeting", zap.Any("id", id), zap.Error(err))
 		return domain.ErrInternal
 	}
 	zap.L().Info("deleted meeting", zap.String("id", id))
+	return nil
+}
+
+func (r *repository) SaveMeeting(ctx context.Context, m *domain.Meeting) error {
+	_, err := r.col.UpdateByID(ctx, m.ID, bson.D{
+		{"$set", bson.D{
+			{"name", m.Name},
+			{"owner_id", m.OwnerID},
+			{"participants", m.Participants},
+			{"organizers", m.Organizers},
+			{"upgrade", m.Upgrade},
+		}},
+	})
+	if err != nil {
+		sentry.CaptureException(err)
+		zap.L().Error("failed to update meeting", zap.Any("meeting", m), zap.Error(err))
+		return domain.ErrInternal
+	}
 	return nil
 }

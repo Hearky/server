@@ -17,7 +17,13 @@ func (s *Server) Error(c *fiber.Ctx, code int, m string) error {
 
 func (s *Server) DomainError(c *fiber.Ctx, err error) error {
 	switch err {
+	case domain.ErrTooManyMeetings:
+		return s.Error(c, fiber.StatusBadRequest, err.Error())
+	case domain.ErrOwnerOfMeeting:
+		return s.Error(c, fiber.StatusBadRequest, err.Error())
 	case domain.ErrUsernameExists:
+		return s.Error(c, fiber.StatusBadRequest, err.Error())
+	case domain.ErrUserExists:
 		return s.Error(c, fiber.StatusBadRequest, err.Error())
 	case domain.ErrInviteExists:
 		return s.Error(c, fiber.StatusBadRequest, err.Error())

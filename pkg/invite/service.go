@@ -70,10 +70,21 @@ func (s *service) GetInvitesByReceiver(uid string) ([]*domain.Invite, error) {
 	return i, nil
 }
 
-func (s *service) GetInvitesByMeeting(mid string) ([]*domain.Invite, error) {
+func (s *service) GetInvitesByMeeting(mid string, uid string) ([]*domain.Invite, error) {
 	// Define timeout
 	ctx, ccl := context.WithTimeout(context.Background(), 10*time.Second)
 	defer ccl()
+
+	// Fetch meeting
+	m, err := s.meetingRepo.GetMeetingByID(ctx, mid)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check permissions
+	if !m.IsParticipant(uid) {
+		return nil, domain.ErrForbidden
+	}
 
 	// Fetch invites
 	i, err := s.inviteRepo.GetInvitesByMeeting(ctx, mid)
@@ -83,7 +94,7 @@ func (s *service) GetInvitesByMeeting(mid string) ([]*domain.Invite, error) {
 	return i, nil
 }
 
-func (s *service) GetInvitesByReceiverCount(uid string) (int, error) {
+func (s *service) GetInvitesByReceiverCount(uid string) (int64, error) {
 	// Define timeout
 	ctx, ccl := context.WithTimeout(context.Background(), 10*time.Second)
 	defer ccl()
@@ -96,7 +107,7 @@ func (s *service) GetInvitesByReceiverCount(uid string) (int, error) {
 	return c, nil
 }
 
-func (s *service) GetInvitesByMeetingCount(mid string, uid string) (int, error) {
+func (s *service) GetInvitesByMeetingCount(mid string, uid string) (int64, error) {
 	// Define timeout
 	ctx, ccl := context.WithTimeout(context.Background(), 10*time.Second)
 	defer ccl()

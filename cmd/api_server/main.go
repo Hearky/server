@@ -33,13 +33,12 @@ func main() {
 	db := mgClient.Database(cfg.MongoDBName)
 
 	meetingRepository := meeting.NewRepository(db)
-	meetingService := meeting.NewService(meetingRepository)
-
 	userRepository := user.NewRepository(db)
-	userService := user.NewService(userRepository)
-
 	inviteRepository := invite.NewRepository(db)
-	inviteService := invite.NewService(inviteRepository, meetingRepository)
+
+	meetingService := meeting.NewService(meetingRepository, inviteRepository, userRepository)
+	userService := user.NewService(userRepository, meetingRepository, inviteRepository)
+	inviteService := invite.NewService(inviteRepository, meetingRepository, userRepository)
 
 	// Initialize firebase
 	ctx, ccl = context.WithTimeout(context.Background(), 10*time.Second)

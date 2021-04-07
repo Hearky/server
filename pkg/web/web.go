@@ -6,21 +6,19 @@ import (
 	"github.com/getsentry/sentry-go"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
-	"github.com/hearky/server/pkg/invite"
-	"github.com/hearky/server/pkg/meeting"
-	"github.com/hearky/server/pkg/user"
+	"github.com/hearky/server/pkg/domain"
 	"go.uber.org/zap"
 )
 
 type Server struct {
 	app            *fiber.App
 	fbAuth         *auth.Client
-	userService    *user.Service
-	meetingService *meeting.Service
-	inviteService  *invite.service
+	userService    domain.UserService
+	meetingService domain.MeetingService
+	inviteService  domain.InviteService
 }
 
-func New(dev bool, fbAuth *auth.Client, userService *user.Service, meetingService *meeting.Service, inviteService *invite.service) *Server {
+func New(dev bool, fbAuth *auth.Client, userService domain.UserService, meetingService domain.MeetingService, inviteService domain.InviteService) *Server {
 	app := fiber.New()
 
 	s := &Server{
@@ -28,6 +26,7 @@ func New(dev bool, fbAuth *auth.Client, userService *user.Service, meetingServic
 		fbAuth:         fbAuth,
 		userService:    userService,
 		meetingService: meetingService,
+		inviteService:  inviteService,
 	}
 
 	// Register metrics endpoint for prometheus scraping
@@ -42,10 +41,21 @@ func New(dev bool, fbAuth *auth.Client, userService *user.Service, meetingServic
 	api := app.Group("/api")
 	api.Post("/meetings", s.HandleCreateMeeting)
 	api.Get("/meetings/:id", s.HandleGetMeetingByID)
-	api.Delete("/meetings/:id", s.HandleDeleteMeetingByID)
+	api.Delete("/meetings/:id", s.HandleDeleteMeeting)
+	api.Get("/meetings/:id/invites", s.HandleGetMeetingInvites)
+	api.Get("/meetings/:id/invites/count", s.HandleGetMeetingInvitesCount)
 
 	api.Post("/users", s.HandleCreateUser)
-	api.Get("/users/@me/meetings", s.HandleGetUserMeetings)
+	api.Get("/users/@me", s.HandleGetMe)
+	api.Delete("/users/@me", s.HandleDeleteMe)
+	api.Get("/users/@me/meetings", s.HandleGetMyMeetings)
+	api.Get("/users/@me/meetings/count", s.HandleGetMyMeetingsCount)
+	api.Get("/users/@me/invites", s.HandleGetMyInvites)
+	api.Get("/users/@me/invites/count", s.HandleGetMyInvitesCount)
+
+	api.Post("/invites", s.HandleSendInvite)
+	api.Post("/invites/:id/accept", s.HandleAcceptInvite)
+	api.Delete("/invites/:id", s.HandleDeleteInvite)
 	return s
 }
 

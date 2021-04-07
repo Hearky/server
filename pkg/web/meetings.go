@@ -1,10 +1,8 @@
 package web
 
 import (
-	"context"
 	"github.com/gofiber/fiber/v2"
 	"github.com/hearky/server/pkg/domain"
-	"time"
 )
 
 func (s *Server) HandleCreateMeeting(c *fiber.Ctx) error {
@@ -18,9 +16,7 @@ func (s *Server) HandleCreateMeeting(c *fiber.Ctx) error {
 		return s.BadRequest(c)
 	}
 
-	ctx, ccl := context.WithTimeout(context.Background(), 10*time.Second)
-	defer ccl()
-	mId, err := s.meetingService.CreateMeeting(ctx, &dto, uid)
+	mId, err := s.meetingService.CreateMeeting(&dto, uid)
 	if err != nil {
 		return s.DomainError(c, err)
 	}
@@ -34,38 +30,51 @@ func (s *Server) HandleGetMeetingByID(c *fiber.Ctx) error {
 	}
 	mId := c.Params("id")
 
-	ctx, ccl := context.WithTimeout(context.Background(), 10*time.Second)
-	defer ccl()
-	m, err := s.meetingService.GetMeetingByID(ctx, mId)
+	m, err := s.meetingService.GetMeetingByID(mId, uid)
 	if err != nil {
 		return s.DomainError(c, err)
-	}
-	if !m.IsParticipant(uid) {
-		return s.Forbidden(c)
 	}
 	return c.JSON(m)
 }
 
-func (s *Server) HandleDeleteMeetingByID(c *fiber.Ctx) error {
+func (s *Server) HandleDeleteMeeting(c *fiber.Ctx) error {
 	uid, err := s.Authorize(c)
 	if err != nil || uid == "" {
 		return nil
 	}
 	mId := c.Params("id")
 
-	ctx, ccl := context.WithTimeout(context.Background(), 10*time.Second)
-	defer ccl()
-	m, err := s.meetingService.GetMeetingByID(ctx, mId)
-	if err != nil {
-		return s.DomainError(c, err)
-	}
-	if m.Owner != uid {
-		return s.Forbidden(c)
-	}
-
-	err = s.meetingService.DeleteMeeting(ctx, mId)
+	err = s.meetingService.DeleteMeeting(mId, uid)
 	if err != nil {
 		return s.DomainError(c, err)
 	}
 	return c.SendStatus(fiber.StatusOK)
+}
+
+func (s *Server) HandleGetMeetingInvites(c *fiber.Ctx) error {
+	uid, err := s.Authorize(c)
+	if err != nil || uid == "" {
+		return nil
+	}
+	mId := c.Params("id")
+
+	i, err := s.inviteService.GetInvitesByMeeting(mId, uid)
+	if err != nil {
+		return s.DomainError(c, err)
+	}
+	return c.JSON(i)
+}
+
+func (s *Server) HandleGetMeetingInvitesCount(c *fiber.Ctx) error {
+	uid, err := s.Authorize(c)
+	if err != nil || uid == "" {
+		return nil
+	}
+	mId := c.Params("id")
+
+	count, err := s.inviteService.GetInvitesByMeetingCount(mId, uid)
+	if err != nil {
+		return s.DomainError(c, err)
+	}
+	return c.JSON(&domain.CountMessage{Count: count})
 }
